@@ -68,16 +68,17 @@ def _encode_payload(kind: str, value) -> bytes:
 
 
 def _child_main(conn, bench_dir, adapter_spec, entry, allow_private):
-    try:
-        os.setsid()  # own process group, so the parent can kill grandchildren too
-    except OSError:
-        pass
+    if hasattr(os, "setsid"):
+        try:
+            os.setsid()  # own process group, so the parent can kill grandchildren too
+        except OSError:
+            pass
     try:
         import resource
         resource.setrlimit(resource.RLIMIT_AS, (MEMORY_LIMIT_BYTES, MEMORY_LIMIT_BYTES))
     except (ImportError, ValueError, OSError):
         pass
-    if os.getuid() == 0:
+    if hasattr(os, "getuid") and os.getuid() == 0:
         # Judging container: never run contestant code as root. As nobody the solver
         # cannot read root-only files (private/), write the report, or signal the parent.
         try:
@@ -139,12 +140,13 @@ def _decode(raw: bytes) -> dict:
 
 def _kill(proc) -> None:
     # killpg before join: the unreaped child keeps its pid (and group id) reserved.
-    try:
-        os.killpg(proc.pid, signal.SIGKILL)
-    except OSError:
-        pass
+    if hasattr(os, "killpg"):
+        try:
+            os.killpg(proc.pid, getattr(signal, "SIGKILL", signal.SIGTERM))
+        except OSError:
+            pass
     if proc.is_alive():
-        proc.kill()
+        proc.terminate() if hasattr(proc, "terminate") else proc.kill()
     proc.join(5)
 
 

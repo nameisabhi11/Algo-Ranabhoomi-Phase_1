@@ -10,9 +10,8 @@
 import math
 import random
 import time
+from abc import ABC, abstractmethod
 from math import isqrt
-
-from adapter import Solver
 
 try:
     from data import distance_matrix
@@ -22,6 +21,14 @@ except Exception:  # pragma: no cover
 TIME_LIMIT = 5.55   # seconds of the 6 s budget we actually use
 SUBMIT_GAP = 0.02   # throttle between improving submissions
 SAFETY = 0.25       # seconds kept in hand before the evaluator's deadline
+
+
+class Solver(ABC):
+    @abstractmethod
+    def solve(self, instance, submit_candidate):
+        """Call submit_candidate(plan) any number of times; each call returns a receipt
+        (accepted, reason, cost, best, elapsed_s, remaining_s). The return value is one
+        more candidate."""
 
 
 def _savings(n, D, dem, cap):
@@ -98,7 +105,7 @@ class MySolver(Solver):
                     state["last"] = now
                     rec = self._push(submit_candidate, state["best"])
                     rem = self._remaining(rec)
-                    if rem is not None:   # trust the evaluator's own clock
+                    if rem is not None:
                         state["dl"] = min(state["dl"],
                                           time.perf_counter() + rem - SAFETY)
             return
@@ -117,12 +124,10 @@ class MySolver(Solver):
         cbar, Lmax, blink = 10.0, 10.0, 0.01
         far_key = lambda c: -D[0][c]
 
-        it = 0
         while True:
             now = time.perf_counter()
             if now >= state["dl"]:
                 break
-            it += 1
             T = T0 * (Tf / T0) ** ((now - t0) / total)
 
             # ---- ruin
@@ -210,7 +215,7 @@ class MySolver(Solver):
         if best is None:
             best = cur
         else:
-            self._push(submit_candidate, best)   # make sure the final best is in
+            self._push(submit_candidate, best)
         return {"routes": best}
 
     @staticmethod
